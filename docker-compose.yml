@@ -1,0 +1,55 @@
+services:
+  api1:
+    build: .
+    image: rinha-2026:latest
+    environment:
+      UDS_PATH: /sockets/api1.sock
+    volumes:
+      - sockets:/sockets
+    networks:
+      - rinha
+    deploy:
+      resources:
+        limits:
+          cpus: "0.40"
+          memory: "150M"
+
+  api2:
+    build: .
+    image: rinha-2026:latest
+    environment:
+      UDS_PATH: /sockets/api2.sock
+    volumes:
+      - sockets:/sockets
+    networks:
+      - rinha
+    deploy:
+      resources:
+        limits:
+          cpus: "0.40"
+          memory: "150M"
+
+  lb:
+    image: haproxy:2.9-alpine
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - sockets:/sockets
+    depends_on:
+      - api1
+      - api2
+    ports:
+      - "9999:9999"
+    networks:
+      - rinha
+    deploy:
+      resources:
+        limits:
+          cpus: "0.20"
+          memory: "50M"
+
+volumes:
+  sockets:
+
+networks:
+  rinha:
+    driver: bridge
