@@ -1,0 +1,8 @@
+target
+.git
+.gitignore
+.dockerignore
+*.md
+.idea
+.vscode
+.DS_Store

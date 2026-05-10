@@ -1,0 +1,9 @@
+/target
+Cargo.lock.bak
+*.swp
+.DS_Store
+.idea/
+.vscode/
+
+references.json.gz
+index.bin
