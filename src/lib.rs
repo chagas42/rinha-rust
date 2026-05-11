@@ -216,7 +216,7 @@ pub fn l2sq_i16(a: &Vec14I, b: &Vec14I) -> u64 {
 pub fn l2sq_i16_scalar(a: &Vec14I, b: &Vec14I) -> u64 {
     let mut sum: u64 = 0;
     for i in 0..DIM_PAD {
-        let d = a[i] as i32 - b[i] as i32;
+        let d = (a[i] as i32 - b[i] as i32) as i64;
         sum += (d * d) as u64;
     }
     sum
@@ -227,21 +227,27 @@ pub fn l2sq_i16_scalar(a: &Vec14I, b: &Vec14I) -> u64 {
 pub unsafe fn l2sq_i16_avx2(a: &Vec14I, b: &Vec14I) -> u64 {
     use std::arch::x86_64::*;
 
-    let pa = a.as_ptr() as *const __m256i;
-    let pb = b.as_ptr() as *const __m256i;
-    let va = _mm256_loadu_si256(pa);
-    let vb = _mm256_loadu_si256(pb);
+    let va = _mm256_loadu_si256(a.as_ptr() as *const __m256i);
+    let vb = _mm256_loadu_si256(b.as_ptr() as *const __m256i);
 
-    let diff = _mm256_sub_epi16(va, vb);
-    let sq = _mm256_madd_epi16(diff, diff);
+    let va_lo = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(va));
+    let va_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(va, 1));
+    let vb_lo = _mm256_cvtepi16_epi32(_mm256_castsi256_si128(vb));
+    let vb_hi = _mm256_cvtepi16_epi32(_mm256_extracti128_si256(vb, 1));
 
-    let lo = _mm256_castsi256_si128(sq);
-    let hi = _mm256_extracti128_si256(sq, 1);
-    let s = _mm_add_epi32(lo, hi);
-    let s = _mm_hadd_epi32(s, s);
-    let s = _mm_hadd_epi32(s, s);
+    let d_lo = _mm256_sub_epi32(va_lo, vb_lo);
+    let d_hi = _mm256_sub_epi32(va_hi, vb_hi);
 
-    _mm_extract_epi32(s, 0) as u32 as u64
+    let mut buf = [0i32; 16];
+    _mm256_storeu_si256(buf.as_mut_ptr() as *mut __m256i, d_lo);
+    _mm256_storeu_si256(buf.as_mut_ptr().add(8) as *mut __m256i, d_hi);
+
+    let mut sum: u64 = 0;
+    for &d in &buf {
+        let dd = d as i64;
+        sum += (dd * dd) as u64;
+    }
+    sum
 }
 
 #[inline(always)]
