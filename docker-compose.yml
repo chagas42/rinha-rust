@@ -1,6 +1,7 @@
 services:
   api1:
     image: ghcr.io/chagas42/rinha-rust:latest
+    pull_policy: always
     environment:
       UDS_PATH: /sockets/api1.sock
     volumes:
@@ -15,6 +16,7 @@ services:
 
   api2:
     image: ghcr.io/chagas42/rinha-rust:latest
+    pull_policy: always
     environment:
       UDS_PATH: /sockets/api2.sock
     volumes:
