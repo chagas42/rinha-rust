@@ -1,7 +1,6 @@
 services:
   api1:
-    build: .
-    image: rinha-2026:latest
+    image: ghcr.io/chagas42/rinha-rust:latest
     environment:
       UDS_PATH: /sockets/api1.sock
     volumes:
@@ -15,8 +14,7 @@ services:
           memory: "150M"
 
   api2:
-    build: .
-    image: rinha-2026:latest
+    image: ghcr.io/chagas42/rinha-rust:latest
     environment:
       UDS_PATH: /sockets/api2.sock
     volumes:
