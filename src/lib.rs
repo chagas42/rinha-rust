@@ -238,16 +238,24 @@ pub unsafe fn l2sq_i16_avx2(a: &Vec14I, b: &Vec14I) -> u64 {
     let d_lo = _mm256_sub_epi32(va_lo, vb_lo);
     let d_hi = _mm256_sub_epi32(va_hi, vb_hi);
 
-    let mut buf = [0i32; 16];
-    _mm256_storeu_si256(buf.as_mut_ptr() as *mut __m256i, d_lo);
-    _mm256_storeu_si256(buf.as_mut_ptr().add(8) as *mut __m256i, d_hi);
+    let lo_even = _mm256_mul_epi32(d_lo, d_lo);
+    let lo_odd_src = _mm256_srli_epi64(d_lo, 32);
+    let lo_odd = _mm256_mul_epi32(lo_odd_src, lo_odd_src);
+    let lo_sum = _mm256_add_epi64(lo_even, lo_odd);
 
-    let mut sum: u64 = 0;
-    for &d in &buf {
-        let dd = d as i64;
-        sum += (dd * dd) as u64;
-    }
-    sum
+    let hi_even = _mm256_mul_epi32(d_hi, d_hi);
+    let hi_odd_src = _mm256_srli_epi64(d_hi, 32);
+    let hi_odd = _mm256_mul_epi32(hi_odd_src, hi_odd_src);
+    let hi_sum = _mm256_add_epi64(hi_even, hi_odd);
+
+    let total256 = _mm256_add_epi64(lo_sum, hi_sum);
+    let total_lo = _mm256_castsi256_si128(total256);
+    let total_hi = _mm256_extracti128_si256(total256, 1);
+    let t = _mm_add_epi64(total_lo, total_hi);
+    let high = _mm_unpackhi_epi64(t, t);
+    let final_v = _mm_add_epi64(t, high);
+
+    _mm_cvtsi128_si64(final_v) as u64
 }
 
 #[inline(always)]
@@ -343,6 +351,20 @@ fn insert_top5(top: &mut [(u64, u32); 5], d: u64, idx: u32) {
         j -= 1;
     }
     top[j] = (d, idx);
+}
+
+pub fn ivf_search_2stage(
+    idx: &IndexView,
+    query: &Vec14F,
+    nprobe_primary: usize,
+    nprobe_refine: usize,
+) -> u8 {
+    let frauds = ivf_search(idx, query, nprobe_primary);
+    if frauds == 2 || frauds == 3 {
+        ivf_search(idx, query, nprobe_refine)
+    } else {
+        frauds
+    }
 }
 
 pub fn ivf_search(idx: &IndexView, query: &Vec14F, nprobe: usize) -> u8 {

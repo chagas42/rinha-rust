@@ -13,7 +13,7 @@ use std::net::SocketAddr;
 use std::sync::OnceLock;
 use tokio::net::{TcpListener, UnixListener};
 
-use rinha_2026::{ivf_search, vectorize, FraudRequest, IndexView};
+use rinha_2026::{ivf_search_2stage, vectorize, FraudRequest, IndexView};
 
 const READY_BODY: &[u8] = b"ok";
 
@@ -27,7 +27,8 @@ const RESPONSES: [&[u8]; 6] = [
 ];
 
 static INDEX: OnceLock<IndexView<'static>> = OnceLock::new();
-const NPROBE: usize = 32;
+const NPROBE_PRIMARY: usize = 4;
+const NPROBE_REFINE: usize = 32;
 const SIMD_JSON_PADDING: usize = 32;
 
 thread_local! {
@@ -58,7 +59,7 @@ async fn handle(req: Request<Incoming>) -> Result<Response<Full<Bytes>>, Infalli
                 let parsed: FraudRequest = simd_json::serde::from_slice(&mut buf[..parse_len]).ok()?;
                 let v = vectorize(&parsed);
                 let idx = INDEX.get().expect("index not loaded");
-                Some(ivf_search(idx, &v, NPROBE))
+                Some(ivf_search_2stage(idx, &v, NPROBE_PRIMARY, NPROBE_REFINE))
             });
 
             let Some(frauds) = frauds else {

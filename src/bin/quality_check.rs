@@ -5,7 +5,7 @@ use std::time::Instant;
 
 use memmap2::Mmap;
 
-use rinha_2026::{ivf_search, vectorize, FraudRequest, IndexView};
+use rinha_2026::{ivf_search, ivf_search_2stage, vectorize, FraudRequest, IndexView};
 
 #[derive(serde::Deserialize)]
 struct TestData<'a> {
@@ -36,8 +36,13 @@ fn main() {
     let index_path = args.next().expect("usage: quality_check <index.bin> <test-data.json> [nprobe]");
     let test_path = args.next().expect("usage: quality_check <index.bin> <test-data.json> [nprobe]");
     let nprobe: usize = args.next().and_then(|s| s.parse().ok()).unwrap_or(16);
+    let nprobe_refine: Option<usize> = args.next().and_then(|s| s.parse().ok());
 
-    eprintln!("[quality] index={} test={} nprobe={}", index_path, test_path, nprobe);
+    let mode = match nprobe_refine {
+        Some(r) => format!("2-stage primary={} refine={}", nprobe, r),
+        None => format!("single nprobe={}", nprobe),
+    };
+    eprintln!("[quality] index={} test={} mode={}", index_path, test_path, mode);
 
     let file = File::open(&index_path).expect("open index.bin");
     let mmap = unsafe { Mmap::map(&file).expect("mmap index.bin") };
@@ -64,7 +69,10 @@ fn main() {
 
     for e in &data.entries {
         let v = vectorize(&e.request);
-        let frauds = ivf_search(&idx, &v, nprobe);
+        let frauds = match nprobe_refine {
+            Some(r) => ivf_search_2stage(&idx, &v, nprobe, r),
+            None => ivf_search(&idx, &v, nprobe),
+        };
         let approved = frauds < 3;
 
         match (e.expected_approved, approved) {
@@ -94,7 +102,7 @@ fn main() {
     let score_det = if cut_triggered { -3000.0 } else { rate_component + absolute_penalty };
 
     println!();
-    println!("=== Quality report (nprobe={}) ===", nprobe);
+    println!("=== Quality report ({}) ===", mode);
     println!("entries:        {}", n);
     println!("mean lookup:    {:.2} µs  (total {:.2}s)", mean_us, elapsed.as_secs_f64());
     println!();
