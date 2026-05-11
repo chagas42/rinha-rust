@@ -1,7 +1,7 @@
 {
     "participants": ["Celso Chagas"],
     "social": ["https://github.com/chagas42"],
-    "source-code-repo": "TBD",
+    "source-code-repo": "https://github.com/chagas42/rinha-rust",
     "stack": ["rust", "hyper", "haproxy"],
     "open_to_work": false
 }
